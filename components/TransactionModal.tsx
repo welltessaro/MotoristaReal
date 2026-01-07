@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
-import { X, Calendar } from 'lucide-react';
+import { X, Calendar, Hash, AlertCircle } from 'lucide-react';
 import { Button } from './ui/Button';
-import { TransactionCategory, TransactionType, FuelType, Transaction } from '../types';
-import { formatDecimal, parseBRL } from '../App';
+import { TransactionCategory, TransactionType, FuelType, Transaction, Vehicle } from '../types';
+import { formatDecimal, parseBRL, formatCurrency } from '../App';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -16,15 +17,16 @@ interface TransactionModalProps {
     fuelType?: FuelType;
     pricePerUnit?: number;
     fuelQuantity?: number;
+    installmentIndex?: number;
   }) => void;
-  activeVehicleId: string;
-  initialData?: Transaction; // Adicionado para suporte a edição
+  activeVehicle?: Vehicle; // Alterado de activeVehicleId string para objeto Vehicle
+  initialData?: Transaction;
 }
 
 const CATEGORIES_EARNING: TransactionCategory[] = ['Uber', '99', 'Indriver', 'Particular'];
 const CATEGORIES_EXPENSE: TransactionCategory[] = ['Combustível', 'Manutenção', 'Alimentação', 'Limpeza', 'FinanciamentoVeiculo', 'AluguelVeiculo', 'Outros'];
 
-export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
+export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, onSubmit, initialData, activeVehicle }) => {
   const [type, setType] = useState<TransactionType>('earning');
   const [amountInput, setAmountInput] = useState('0,00');
   const [category, setCategory] = useState<TransactionCategory>('Uber');
@@ -34,6 +36,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
   // Fuel Specific States
   const [fuelType, setFuelType] = useState<FuelType>('Gasolina');
   const [pricePerUnitInput, setPricePerUnitInput] = useState('0,000');
+
+  // Installment Specific States
+  const [installmentIndex, setInstallmentIndex] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
@@ -45,6 +50,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
         setKm(initialData.kmInput?.toString() || '');
         setFuelType(initialData.fuelType || 'Gasolina');
         setPricePerUnitInput(initialData.pricePerUnit ? formatDecimal(initialData.pricePerUnit, 3) : '0,000');
+        setInstallmentIndex(initialData.installmentIndex?.toString() || '');
       } else {
         setType('earning');
         setAmountInput('0,00');
@@ -53,9 +59,29 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
         setKm('');
         setPricePerUnitInput('0,000');
         setFuelType('Gasolina');
+        
+        // Setup padrão para Financiamento
+        if (activeVehicle?.ownershipStatus === 'financiado') {
+           setInstallmentIndex(((activeVehicle.installmentsPaid || 0) + 1).toString());
+        }
       }
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, activeVehicle]);
+
+  // Efeito para atualizar valores padrão ao trocar categoria
+  useEffect(() => {
+    if (isOpen && !initialData && type === 'expense') {
+       if (category === 'FinanciamentoVeiculo' && activeVehicle?.ownershipStatus === 'financiado') {
+          setAmountInput(formatDecimal(activeVehicle.installmentValue || 0));
+          setInstallmentIndex(((activeVehicle.installmentsPaid || 0) + 1).toString());
+       } else if (category === 'AluguelVeiculo' && activeVehicle?.ownershipStatus === 'alugado') {
+          setAmountInput(formatDecimal(activeVehicle.rentalValue || 0));
+       } else if (category !== 'Combustível') {
+          // Reset para zero em outras categorias se não for edição
+          // setAmountInput('0,00'); 
+       }
+    }
+  }, [category, type, isOpen, activeVehicle]);
 
   if (!isOpen) return null;
 
@@ -98,7 +124,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
       kmInput: (type === 'expense' && km) ? parseFloat(km) : undefined,
       fuelType: (type === 'expense' && category === 'Combustível') ? fuelType : undefined,
       pricePerUnit,
-      fuelQuantity: (type === 'expense' && category === 'Combustível' && calculatedQty > 0) ? calculatedQty : undefined
+      fuelQuantity: (type === 'expense' && category === 'Combustível' && calculatedQty > 0) ? calculatedQty : undefined,
+      installmentIndex: (category === 'FinanciamentoVeiculo' && installmentIndex) ? parseInt(installmentIndex) : undefined
     });
     
     onClose();
@@ -109,6 +136,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
     if (fuelType === 'kWh') return 'kWh';
     return 'Litro';
   };
+
+  // Lógica para mostrar/esconder campos
+  const showKmInput = type === 'expense' && (category === 'Combustível' || category === 'Manutenção');
+  const isFinancing = type === 'expense' && category === 'FinanciamentoVeiculo';
+  const isRent = type === 'expense' && category === 'AluguelVeiculo';
 
   return (
     <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-brand-navy/60 backdrop-blur-sm animate-fade-in">
@@ -123,11 +155,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="text-center py-4">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Valor</label>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Valor {isFinancing && "(Editável)"}</label>
             <div className="relative inline-block">
               <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full text-2xl font-medium text-gray-400 pr-2">R$</span>
               <input type="text" value={amountInput} onChange={handleAmountChange} className={`w-48 text-center text-6xl font-extrabold bg-transparent border-none outline-none ${type === 'earning' ? 'text-brand-navy dark:text-white' : 'text-red-500'}`} autoFocus />
             </div>
+            {isFinancing && parseBRL(amountInput) !== (activeVehicle?.installmentValue || 0) && (
+               <p className="text-[10px] text-gray-400 font-bold mt-2">Valor original: {formatCurrency(activeVehicle?.installmentValue || 0)}</p>
+            )}
           </div>
 
           <div>
@@ -141,8 +176,49 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
             </div>
           </div>
 
+          {/* Seção Financiamento */}
+          {isFinancing && (
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 animate-fade-in">
+               <div className="flex items-center gap-2 mb-3 text-brand-primary">
+                 <Hash size={16} />
+                 <span className="text-xs font-black uppercase tracking-widest">Baixa de Parcela</span>
+               </div>
+               <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-gray-600 dark:text-gray-300">Número da Parcela</label>
+                  <input 
+                    type="number" 
+                    value={installmentIndex} 
+                    onChange={e => setInstallmentIndex(e.target.value)}
+                    min={(activeVehicle?.installmentsPaid || 0) + 1}
+                    max={activeVehicle?.totalInstallments}
+                    className="w-20 p-2 text-center rounded-lg border font-black bg-white dark:bg-slate-900 outline-none focus:border-brand-primary"
+                  />
+               </div>
+               <p className="text-[10px] text-gray-400 mt-2">
+                 Ao confirmar, a parcela {installmentIndex} será marcada como paga e removida do cálculo de custo fixo deste mês.
+               </p>
+            </div>
+          )}
+
+          {/* Seção Aluguel */}
+          {isRent && (
+            <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 animate-fade-in">
+              <div className="flex items-center gap-2 mb-2 text-brand-primary">
+                 <Calendar size={16} />
+                 <span className="text-xs font-black uppercase tracking-widest">Aluguel Vigente</span>
+              </div>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                Pagamento referente ao período atual.
+              </p>
+              <div className="mt-2 flex items-center gap-2 text-[10px] text-orange-500 font-bold bg-orange-50 dark:bg-orange-900/20 p-2 rounded-lg">
+                <AlertCircle size={12} />
+                Não é possível adiantar aluguel futuro por aqui.
+              </div>
+            </div>
+          )}
+
           {type === 'expense' && category === 'Combustível' && (
-            <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30 space-y-4">
+            <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30 space-y-4 animate-fade-in">
               <div>
                 <label className="block text-[10px] font-bold text-orange-400 uppercase mb-2">Combustível</label>
                 <div className="flex gap-2">
@@ -167,13 +243,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
             </div>
           )}
 
-          <div className={`grid ${type === 'expense' ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+          <div className={`grid ${showKmInput ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
             <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-3">
               <Calendar size={20} className="text-gray-400" />
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-transparent text-sm font-bold text-brand-navy dark:text-white outline-none" required />
             </div>
-            {type === 'expense' && (
-               <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-3">
+            {showKmInput && (
+               <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center gap-3 animate-fade-in">
                  <span className="text-xs font-bold text-gray-400">KM:</span>
                  <input type="number" value={km} onChange={e => setKm(e.target.value)} placeholder="Atual" className="w-full bg-transparent text-sm font-bold text-brand-navy dark:text-white outline-none" />
                </div>

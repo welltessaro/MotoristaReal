@@ -1,3 +1,4 @@
+
 import { User, Vehicle, Transaction, AppVersionInfo } from '../types';
 
 // Keys for LocalStorage
@@ -160,9 +161,18 @@ export const MockBackend = {
     // 3. Seguro
     if (newVehicle.hasInsurance && newVehicle.insuranceValue && newVehicle.insuranceInstallments) {
       const installmentVal = newVehicle.insuranceValue / newVehicle.insuranceInstallments;
+      const dueDay = newVehicle.insuranceDueDay || 10;
+      
       for (let i = 0; i < newVehicle.insuranceInstallments; i++) {
           const paymentDate = new Date(today);
           paymentDate.setMonth(today.getMonth() + i);
+          paymentDate.setDate(dueDay);
+
+          // Ajuste se data já passou no mês corrente
+          if (i === 0 && paymentDate.getTime() < today.getTime()) {
+             paymentDate.setMonth(today.getMonth() + 1);
+          }
+
           newTransactions.push({
             transactionId: generateId() + `_seguro_${i}`,
             userId: newVehicle.userId,

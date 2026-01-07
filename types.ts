@@ -56,7 +56,8 @@ export interface Vehicle {
   // Seguro
   hasInsurance?: boolean;
   insuranceValue?: number; 
-  insuranceInstallments?: number; 
+  insuranceInstallments?: number;
+  insuranceDueDay?: number;
   insuranceExpiryDate?: string; 
 }
 
@@ -92,6 +93,9 @@ export interface Transaction {
   fuelType?: FuelType;
   pricePerUnit?: number; 
   fuelQuantity?: number; 
+  
+  // Financeiro
+  installmentIndex?: number; // Para financiamento (ex: parcela 10)
 }
 
 export interface AppVersionInfo {
