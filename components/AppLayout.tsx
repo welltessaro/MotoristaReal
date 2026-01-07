@@ -11,6 +11,7 @@ interface AppLayoutProps {
   currentView: ViewState;
   onNavigate: (view: ViewState) => void;
   onAddTransaction: () => void;
+  onHeaderClick?: () => void;
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ 
@@ -21,11 +22,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onSwitchVehicle,
   currentView,
   onNavigate,
-  onAddTransaction
+  onAddTransaction,
+  onHeaderClick
 }) => {
   const [isVehicleMenuOpen, setIsVehicleMenuOpen] = useState(false);
   const activeVehicle = vehicles.find(v => v.vehicleId === activeVehicleId);
   const isFocusMode = currentView === 'onboarding' || currentView === 'auth';
+
+  const getVehicleLabel = (v: Vehicle) => {
+    const plateFormatted = v.plate.length === 7 ? `${v.plate.slice(0, 3)}-${v.plate.slice(3)}` : v.plate;
+    return `${v.model} • ${plateFormatted}`;
+  };
 
   return (
     <div className="h-[100dvh] flex flex-col max-w-lg mx-auto overflow-hidden relative bg-brand-surface dark:bg-brand-navy">
@@ -33,14 +40,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       {!isFocusMode && (
         <header className="bg-brand-surface/90 dark:bg-brand-navy/90 backdrop-blur-md sticky top-0 z-30 pt-safe px-4 py-3 shrink-0">
           <div className="flex justify-between items-center h-12">
-            <div className="relative">
+            <div className="flex items-center gap-2">
                <button 
-                 onClick={() => setIsVehicleMenuOpen(!isVehicleMenuOpen)}
+                 onClick={() => onHeaderClick ? onHeaderClick() : setIsVehicleMenuOpen(!isVehicleMenuOpen)}
                  className="flex items-center gap-2 bg-brand-secondary/10 dark:bg-brand-secondary/20 py-2 px-4 rounded-full transition-all active:scale-95"
                >
                  <span className="w-2 h-2 rounded-full bg-brand-emerald"></span>
-                 <span className="text-sm font-medium text-brand-navy dark:text-gray-200">
-                   {activeVehicle ? activeVehicle.model : 'Veículo'}
+                 <span className="text-sm font-bold text-brand-navy dark:text-gray-200">
+                   {activeVehicle ? getVehicleLabel(activeVehicle) : 'Selecionar Veículo'}
                  </span>
                  <ChevronDown size={16} className={`text-gray-500 transition-transform ${isVehicleMenuOpen ? 'rotate-180' : ''}`} />
                </button>
@@ -48,7 +55,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                {isVehicleMenuOpen && (
                  <>
                    <div className="fixed inset-0 z-40" onClick={() => setIsVehicleMenuOpen(false)}></div>
-                   <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-[#2b2930] rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden py-2 z-50 animate-fade-in">
+                   <div className="absolute top-full left-0 mt-2 w-72 bg-white dark:bg-[#2b2930] rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden py-2 z-50 animate-fade-in">
+                     <p className="px-6 py-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">Meus Veículos</p>
                      {vehicles.map(v => (
                        <button
                          key={v.vehicleId}
@@ -56,14 +64,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                            onSwitchVehicle(v.vehicleId);
                            setIsVehicleMenuOpen(false);
                          }}
-                         className={`w-full text-left px-6 py-4 text-sm flex justify-between items-center ${v.vehicleId === activeVehicleId ? 'bg-brand-primary/10 text-brand-primary font-bold' : 'text-gray-600 dark:text-gray-300'}`}
+                         className={`w-full text-left px-6 py-4 text-sm flex justify-between items-center ${v.vehicleId === activeVehicleId ? 'bg-brand-primary/10 text-brand-primary font-bold' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
                        >
-                         {v.model}
+                         {getVehicleLabel(v)}
                          {v.vehicleId === activeVehicleId && <div className="w-2 h-2 rounded-full bg-brand-primary" />}
                        </button>
                      ))}
                      <div className="h-px bg-gray-100 dark:bg-gray-800 mx-4 my-2"></div>
-                     <button onClick={() => { onNavigate('vehicles'); setIsVehicleMenuOpen(false); }} className="w-full text-left px-6 py-4 text-sm font-medium text-brand-primary">Gerenciar Veículos</button>
+                     <button onClick={() => { onNavigate('vehicles'); setIsVehicleMenuOpen(false); }} className="w-full text-left px-6 py-4 text-sm font-black text-brand-primary">Gerenciar Frota</button>
                    </div>
                  </>
                )}
@@ -84,7 +92,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
       {!isFocusMode && (
         <>
-          {/* Flutter-style FAB (Floating Action Button) */}
           <button 
             onClick={onAddTransaction}
             className="fixed bottom-24 right-6 w-16 h-16 bg-brand-primary dark:bg-brand-primary text-white rounded-2xl shadow-xl flex items-center justify-center active:scale-90 hover:scale-105 transition-all z-40 border-4 border-white dark:border-brand-navy"
@@ -133,7 +140,6 @@ const FlutterNavItem = ({ icon, label, isActive, onClick }: any) => (
       onClick={onClick}
       className={`flex flex-col items-center justify-center w-full h-16 gap-1 group relative transition-all`}
     >
-      {/* Pill Indicator (Material 3 style) */}
       <div className={`w-16 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-brand-primary/20 text-brand-primary' : 'text-gray-500 dark:text-gray-400 group-active:bg-gray-100'}`}>
         {icon}
       </div>

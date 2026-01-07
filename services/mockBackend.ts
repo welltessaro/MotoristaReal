@@ -14,11 +14,9 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 export const MockBackend = {
   // --- Versioning ---
   getAppVersion: async (): Promise<AppVersionInfo> => {
-    // Simula uma chamada de API para verificar a versão na Play Store
-    // Para teste: currentVersion < latestVersion dispara o banner
     return {
       currentVersion: "1.2.0",
-      latestVersion: "1.3.0", // Versão simulada na Play Store
+      latestVersion: "1.3.0",
       isMandatory: false,
       releaseNotes: [
         "✨ Novo gráfico de performance financeira",
@@ -101,6 +99,7 @@ export const MockBackend = {
     const newTransactions: Transaction[] = [];
     const today = new Date();
 
+    // 1. Financiamento
     if (newVehicle.ownershipStatus === 'financiado' && newVehicle.installmentValue) {
       const remaining = (newVehicle.totalInstallments || 0) - (newVehicle.installmentsPaid || 0);
       for (let i = 1; i <= remaining; i++) {
@@ -119,6 +118,46 @@ export const MockBackend = {
       }
     }
 
+    // 2. Aluguel com dia de vencimento real ou dia da semana
+    if (newVehicle.ownershipStatus === 'alugado' && newVehicle.rentalValue) {
+      const count = newVehicle.rentalPeriod === 'semanal' ? 12 : 6;
+      const dueDate = newVehicle.rentalDueDate || 0; // Para semanal é 0-6, para mensal 1-31
+
+      for (let i = 0; i < count; i++) {
+        const futureDate = new Date(today);
+        
+        if (newVehicle.rentalPeriod === 'semanal') {
+          // Encontrar o próximo dia da semana correspondente (dueDate)
+          const currentDay = today.getDay();
+          let diff = dueDate - currentDay;
+          if (diff < 0) diff += 7; // Se já passou na semana atual, vai para a próxima
+          
+          futureDate.setDate(today.getDate() + diff + (i * 7));
+        } else {
+          // Para mensal, respeita o dia de vencimento escolhido
+          futureDate.setMonth(today.getMonth() + i);
+          futureDate.setDate(dueDate);
+          
+          // Ajuste caso a data resultante seja no passado em relação a hoje (para a primeira parcela)
+          if (i === 0 && futureDate.getTime() < today.getTime()) {
+             futureDate.setMonth(today.getMonth() + 1);
+          }
+        }
+
+        newTransactions.push({
+          transactionId: generateId() + `_aluguel_${i}`,
+          userId: newVehicle.userId,
+          vehicleId: newVehicle.vehicleId,
+          type: 'expense',
+          category: 'AluguelVeiculo',
+          amount: newVehicle.rentalValue,
+          date: futureDate.toISOString().split('T')[0],
+          timestamp: futureDate.getTime(),
+        });
+      }
+    }
+
+    // 3. Seguro
     if (newVehicle.hasInsurance && newVehicle.insuranceValue && newVehicle.insuranceInstallments) {
       const installmentVal = newVehicle.insuranceValue / newVehicle.insuranceInstallments;
       for (let i = 0; i < newVehicle.insuranceInstallments; i++) {
@@ -178,5 +217,16 @@ export const MockBackend = {
     const updated = [newTx, ...transactions];
     localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(updated));
     return newTx;
+  },
+
+  updateTransaction: async (transactionId: string, data: Partial<Transaction>): Promise<Transaction | null> => {
+    const t = localStorage.getItem(KEYS.TRANSACTIONS);
+    let transactions: Transaction[] = t ? JSON.parse(t) : [];
+    const index = transactions.findIndex(tx => tx.transactionId === transactionId);
+    if (index === -1) return null;
+    
+    transactions[index] = { ...transactions[index], ...data };
+    localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    return transactions[index];
   }
 };

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
@@ -14,7 +15,7 @@
           extend: {
             colors: {
               brand: {
-                primary: '#6750A4', // Material 3 Baseline Purple
+                primary: '#6750A4', 
                 secondary: '#625b71',
                 tertiary: '#7d5260',
                 error: '#b3261e',
@@ -26,11 +27,12 @@
             borderRadius: {
               'xl': '12px',
               '2xl': '16px',
-              '3xl': '28px', // Material 3 Large Card
+              '3xl': '28px', 
             },
             animation: {
               'slide-up': 'slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               'fade-in': 'fadeIn 0.2s ease-out',
+              'shake': 'shake 0.4s cubic-bezier(.36,.07,.19,.97) both',
             },
             keyframes: {
               slideUp: {
@@ -40,6 +42,12 @@
               fadeIn: {
                 '0%': { opacity: '0' },
                 '100%': { opacity: '1' },
+              },
+              shake: {
+                '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
               }
             }
           }
@@ -56,11 +64,9 @@
         overscroll-behavior-y: contain;
       }
 
-      /* Flutter-like scroll removal */
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-      /* Safe Area support */
       .pt-safe { padding-top: env(safe-area-inset-top); }
       .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 
